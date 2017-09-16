@@ -1,0 +1,2 @@
+#oprnCV3 for python3
+brew install opencv3 --with-contrib --with-python3 --without-python
