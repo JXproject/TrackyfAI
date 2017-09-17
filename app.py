@@ -17,12 +17,14 @@ Scene_Width = -1.0
 Global_Full_Heat_Area_Counter = 0
 CONST_MAX_HEAT_AREA_TOLERANCE = 0.2
 
-calcDist = lambda s,d : (s[0]-d[0])**2+(s[1]-d[1])**2
-
 # ==================================FUNCTIONS================================
 #Heat Map Color  0 blue <-> 1 red
 def HeatMapClr(weight_):
     return colorsys.hsv_to_rgb((weight_)*2.0/3.0, math.sqrt(weight_), 1)
+
+#Calculate distance between a blob in the current frame, and all the blobs in the previous frame
+def calcDist(prevCoords, currBlobCoord):
+    return map(((x[0]-currBlobCoord[0])**2+(x[1]-currBlobCoord[1])**2), prevCoords);
 
 #HeatMapAssign
 def Heat_Map_Generate(DataMat_, width_, height_):
@@ -97,21 +99,25 @@ def addToPath(blobsInFrame):
         prevCoords = reduce((lambda x, y: x['coords'][-1]), ObjsOfInterests);
         for currBlob in blobsInFrame:
             currBlobCoord = (currBlob['cX'], currBlob['cY'])
-            nearestPrevBlob = min(prevCoords, key=partial(calcDist, currBlobCoord))
-            if calcDist(currBlobCoord, nearestPrevBlob) < DIST_THRESHOLD:
-                blobIndex = [y for y in prevCoords].index(nearestPrevBlob);
+            distToBlobs = calcDist(prevCoords, currBlobCoord);
+            minDist = min(distToBlobs);
+            blobIndex = distToBlobs.index(minDist);
+            nearestPrevBlob = prevCoords[blobIndex];
+
+            if minDist < DIST_THRESHOLD:
                 ObjsOfInterests[blobIndex]['coords'][-1].append(currBlobCoord);
-                #ObjsOfInterests[blobIndex]['elapsedFrames']+=1;
+                ObjsOfInterests[blobIndex]['elapsedFrames']+=1;
                 #ObjsOfInterests[blobIndex]['weight'] += currBlob['weight']
             else:
                 ObjsOfInterests.append({
                     'coords': currBlobCoord,
-                    'elapsedFrames': 1,
+                    'elapsedFrames': 1
                     #'weight': blob['weight']
                 })
 
 def drawObjectPaths():
     print(ObjsOfInterests)
+    #cv2.arrowedLine(img, nearestPrevBlob, currBlobCoord, color, thickness, lineType, shift)
     
 
     #======================================================== END OF FUNCTIONS ===============================#
