@@ -3,6 +3,11 @@ import numpy as np
 from functools import partial;
 from functools import reduce;
 
+ObjsOfInterests = []
+DIST_THRESHOLD = 0.01
+
+calcDist = lambda s, d: (s[0]-d[0])**2+(s[1]-d[1])**2
+
 def nothing(x):
     pass
 
@@ -35,12 +40,6 @@ def drawObjectPaths():
     print(ObjsOfInterests)
     
 
-
-
-ObjsOfInterests = []
-DIST_THRESHOLD = 0.01
-
-calcDist = lambda s, d: (s[0]-d[0])**2+(s[1]-d[1])**2
 
 # Create a black image, a window
 
