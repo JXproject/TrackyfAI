@@ -26,7 +26,7 @@ def HeatMapClr(weight_):
 def calcDist(prevCoords, currBlobCoord):
     euclidDist = [];
     for coord in prevCoords:
-        print('value of coord[0]: ', coord[0])
+        print('value of coord[0]: ', coord)
         euclidDist.append((coord[0]-currBlobCoord[0])**2 +(coord[1]-currBlobCoord[1])**2)
     return euclidDist;
 #
@@ -103,6 +103,7 @@ def addToPath(blobsInFrame):
         prevCoords = [];
         for blob in ObjsOfInterests:
             prevCoords.append(blob['coords'][-1]);
+        print('ObjsOfInterests', ObjsOfInterests)
         print('prevCoords',prevCoords)
         for currBlob in blobsInFrame:
             currBlobCoord = (currBlob['cX'], currBlob['cY'])
@@ -117,17 +118,17 @@ def addToPath(blobsInFrame):
                 #ObjsOfInterests[blobIndex]['weight'] += currBlob['weight']
             else:
                 ObjsOfInterests.append({
-                    'coords': currBlobCoord,
+                    'coords': [currBlobCoord],
                     'elapsedFrames': 1
                     #'weight': blob['weight']
                 })
 
 def drawObjectPaths(videoFrame):
     #print(ObjsOfInterests)
-    if len(ObjsOfInterests) > 2:
-        for blob in ObjsOfInterests:
-            blobCoordHist = blob['coords'];
-            cv2.arrowedLine(videoFrame, blobCoordHist[-2], blobCoordHist[-1]);
+    for blob in ObjsOfInterests:
+        blobCoordHist = blob['coords'];
+        if len(blobCoordHist) > 2:
+            cv2.arrowedLine(videoFrame, blobCoordHist[-2], blobCoordHist[-1], (0,0,255), 3,8,0,0.1);
     
 
     #======================================================== END OF FUNCTIONS ===============================#
