@@ -24,8 +24,12 @@ def HeatMapClr(weight_):
 
 #Calculate distance between a blob in the current frame, and all the blobs in the previous frame
 def calcDist(prevCoords, currBlobCoord):
-    return map(((x[0]-currBlobCoord[0])**2+(x[1]-currBlobCoord[1])**2), prevCoords);
-
+    euclidDist = [];
+    for coord in prevCoords:
+        print('value of coord[0]: ', coord[0])
+        euclidDist.append((coord[0]-currBlobCoord[0])**2 +(coord[1]-currBlobCoord[1])**2)
+    return euclidDist;
+#
 #HeatMapAssign
 def Heat_Map_Generate(DataMat_, width_, height_):
    Amount_x = len(DataMat_[0])
@@ -96,7 +100,10 @@ def addToPath(blobsInFrame):
                 #'weight': currBlob['weight']
             });
     else:
-        prevCoords = reduce((lambda x, y: x['coords'][-1]), ObjsOfInterests);
+        prevCoords = [];
+        for blob in ObjsOfInterests:
+            prevCoords.append(blob['coords'][-1]);
+        print('prevCoords',prevCoords)
         for currBlob in blobsInFrame:
             currBlobCoord = (currBlob['cX'], currBlob['cY'])
             distToBlobs = calcDist(prevCoords, currBlobCoord);
@@ -105,7 +112,7 @@ def addToPath(blobsInFrame):
             nearestPrevBlob = prevCoords[blobIndex];
 
             if minDist < DIST_THRESHOLD:
-                ObjsOfInterests[blobIndex]['coords'][-1].append(currBlobCoord);
+                ObjsOfInterests[blobIndex]['coords'].append(currBlobCoord);
                 ObjsOfInterests[blobIndex]['elapsedFrames']+=1;
                 #ObjsOfInterests[blobIndex]['weight'] += currBlob['weight']
             else:
@@ -115,9 +122,12 @@ def addToPath(blobsInFrame):
                     #'weight': blob['weight']
                 })
 
-def drawObjectPaths():
-    print(ObjsOfInterests)
-    #cv2.arrowedLine(img, nearestPrevBlob, currBlobCoord, color, thickness, lineType, shift)
+def drawObjectPaths(videoFrame):
+    #print(ObjsOfInterests)
+    if len(ObjsOfInterests) > 2:
+        for blob in ObjsOfInterests:
+            blobCoordHist = blob['coords'];
+            cv2.arrowedLine(videoFrame, blobCoordHist[-2], blobCoordHist[-1]);
     
 
     #======================================================== END OF FUNCTIONS ===============================#
@@ -201,7 +211,7 @@ while(1):
 
     if r == 1: #only triggers contour drawing if the GUI toggle is on
         current_blobs = []
-        videoFrame = cv2.resize(videoFrame, (600,300))
+        #videoFrame = cv2.resize(videoFrame, (600,300))
 
         for cnt in contours:
             M = cv2.moments(cnt)
@@ -217,11 +227,11 @@ while(1):
             cv2.circle(videoFrame, (centroidX, centroidY), 2, (0,255,0), -1)
 
             current_blobs.append({'cX':centroidX, 'cY':centroidY, 'area':area})
+            addToPath(current_blobs)
+            drawObjectPaths(videoFrame)
 
     
 
-    #addToPath(current_blobs)
-    #drawObjectPaths()
 
     #Draw lines
 
@@ -240,7 +250,7 @@ while(1):
     if r == 0:
         videoFrame = cv2.addWeighted(videoFrame, 1, HeatMap_img_resized, b/100.0, 0) #change to global variable
     else:
-        videoFrame = cv2.addWeighted(videoFrame, 1, cv2.resize(HeatMap_img_resized,(600,300)), b/100.0, 0) #change to global variable
+        videoFrame = cv2.addWeighted(videoFrame, 1, HeatMap_img_resized, b/100.0, 0) #change to global variable
 
 
     #print(r/100)
