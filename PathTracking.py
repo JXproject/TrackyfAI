@@ -1,12 +1,15 @@
 from functools import partial;
 from functools import reduce;
+import cv2;
+import sys;
 
 ObjsOfInterests = [];
 DIST_THRESHOLD = 0.01;
 
-calcDist = lambda s, d: (s[0]-d[0])**2+(s[1]-d[1])**2
+def calcDist(prevCoords, currBlobCoord):
+	return map(((x[0]-currBlobCoord[0])**2+(x[1]-currBlobCoord[1])**2), prevCoords);
 
-def addToPath(currentBlobs):
+def addToPath(blobsInFrame):
 	if len(ObjsOfInterests) == 0:
 		for currBlob in blobsInFrame:
 			ObjsOfInterests.append({
@@ -18,16 +21,20 @@ def addToPath(currentBlobs):
 		prevCoords = reduce((lambda x, y: x['coords'][-1]), ObjsOfInterests);
 		for currBlob in blobsInFrame:
 			currBlobCoord = (currBlob['cX'], currBlob['cY'])
-			nearestPrevBlob = min(prevCoords, key=partial(calcDist, currBlobCoord))
-			if calcDist(currBlobCoord, nearestPrevBlob) < DIST_THRESHOLD:
-				blobIndex = [y for y in prevCoords].index(nearestPrevBlob);
+			distToBlobs = calcDist(prevCoords, currBlobCoord);
+			minDist = min(distToBlobs);
+			blobIndex = distToBlobs.index(minDist);
+			nearestPrevBlob = prevCoords[blobIndex];
+			cv2.arrowedLine(img, nearestPrevBlob, currBlobCoord, color, thickness, lineType, shift)
+
+			if minDist < DIST_THRESHOLD:
 				ObjsOfInterests[blobIndex]['coords'][-1].append(currBlobCoord);
 				ObjsOfInterests[blobIndex]['elapsedFrames']+=1;
-				ObjsOfInterests[blobIndex]['weight'] += currBlob['weight']
+				#ObjsOfInterests[blobIndex]['weight'] += currBlob['weight']
 			else:
 				ObjsOfInterests.append({
 					'coords': currBlobCoord,
-					'elapsedFrames': 1,
-					'weight': blob['weight']
+					'elapsedFrames': 1
+					#'weight': blob['weight']
 				})
-	
+
