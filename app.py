@@ -7,7 +7,7 @@ import math
 import colorsys
 
 ObjsOfInterests = []
-DIST_THRESHOLD = 0.01
+DIST_THRESHOLD = 0.2
 #Font Style for OnGUI info
 font = cv2.FONT_HERSHEY_SIMPLEX
 #Screen height and width
@@ -26,7 +26,7 @@ def HeatMapClr(weight_):
 def calcDist(prevCoords, currBlobCoord):
     euclidDist = [];
     for coord in prevCoords:
-        print('value of coord[0]: ', coord)
+        #print('value of coord[0]: ', coord)
         euclidDist.append((coord[0]-currBlobCoord[0])**2 +(coord[1]-currBlobCoord[1])**2)
     return euclidDist;
 #
@@ -103,8 +103,8 @@ def addToPath(blobsInFrame):
         prevCoords = [];
         for blob in ObjsOfInterests:
             prevCoords.append(blob['coords'][-1]);
-        print('ObjsOfInterests', ObjsOfInterests)
-        print('prevCoords',prevCoords)
+        #print('ObjsOfInterests', ObjsOfInterests)
+        #print('prevCoords',prevCoords)
         for currBlob in blobsInFrame:
             currBlobCoord = (currBlob['cX'], currBlob['cY'])
             distToBlobs = calcDist(prevCoords, currBlobCoord);
@@ -128,7 +128,7 @@ def drawObjectPaths(videoFrame):
     for blob in ObjsOfInterests:
         blobCoordHist = blob['coords'];
         if len(blobCoordHist) > 2:
-            cv2.arrowedLine(videoFrame, blobCoordHist[-2], blobCoordHist[-1], (0,0,255), 3,8,0,0.1);
+            cv2.arrowedLine(videoFrame, blobCoordHist[-2], blobCoordHist[-1], (0,0,255), 5,8,0,0.1);
     
 
     #======================================================== END OF FUNCTIONS ===============================#
@@ -146,7 +146,7 @@ cv2.namedWindow('image')
 
 # create trackbars for color change
 cv2.createTrackbar('Moving Objects','image',0,1,nothing)
-cv2.createTrackbar('Object Trajectory','image',0,100,nothing)
+cv2.createTrackbar('Object Trajectory','image',0,1,nothing)
 cv2.createTrackbar('Heat Map','image',0,100,nothing)
 
 # create switch for ON/OFF functionality
@@ -228,9 +228,10 @@ while(1):
             cv2.circle(videoFrame, (centroidX, centroidY), 2, (0,255,0), -1)
 
             current_blobs.append({'cX':centroidX, 'cY':centroidY, 'area':area})
-            addToPath(current_blobs)
-            drawObjectPaths(videoFrame)
+        addToPath(current_blobs)
 
+        if g == 1:
+            drawObjectPaths(videoFrame)
     
 
 
