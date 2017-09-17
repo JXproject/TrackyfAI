@@ -4,6 +4,12 @@ import random
 import math
 import colorsys
 
+#Static Variable for HeatDissipate Area counter
+Global_Full_Heat_Area_Counter = 0
+
+#Constant Variable
+CONST_MAX_HEAT_AREA_TOLERANCE = 0.2 #20%
+
 # ==================================FUNCTIONS================================
 #Heat Map Color  0 blue <-> 1 red
 def HeatMapClr(weight_):
@@ -27,9 +33,9 @@ def Heat_Map_Generate(DataMat_, width_, height_):
        xPos = xPos + 1 #Increment X position by 1
    return cv2.resize(HeatMap_img, (int(width_), int(height_)));
 
-# Update Heap Mat Accumulate Data
-def Heat_Map_Data_Mat_Update (DataMat_, x_, y_, Screen_Width_, Screen_Height_, weight):
-    if(x_<=Scene_Width and y_<=Scene_Height and x_>=0 and y_>=0):
+# Update Heat Mat Accumulate Data
+def Heat_Map_Data_Mat_Update (DataMat_, x_, y_, Screen_Width_, Screen_Height_, weight_, Global_Full_Heat_Area_Counter_):
+    if(x_<=Screen_Width_ and y_<=Screen_Height_ and x_>=0 and y_>=0):
         Unit_x = Screen_Width_/(len(DataMat_[0])-1)
         Unit_y = Screen_Height_/(len(DataMat_)-1)
         index_x_Centre = round(x_/Unit_x)
@@ -42,16 +48,29 @@ def Heat_Map_Data_Mat_Update (DataMat_, x_, y_, Screen_Width_, Screen_Height_, w
                 index_y = index_y_Centre + j
                 factor = 1 - (abs(i)+abs(j))/3 #Distance Factor
                 if (index_y<len(DataMat_) and index_x<len(DataMat_[0]) and index_x>=0 and index_y>=0) :
-                    Prev_Value = CentreValue + weight*factor
-                    if (Prev_Value > 1):
+                    Prev_Value = CentreValue + weight_*factor
+                    if (Prev_Value >= 1):
+                        if (DataMat_[index_y][index_x] != 1):
+                            Global_Full_Heat_Area_Counter_ += 1;
                         DataMat_[index_y][index_x] = 1
                     elif (Prev_Value < 0):
                         DataMat_[index_y][index_x] = 0
                     else :
                         DataMat_[index_y][index_x] = Prev_Value
         #CODE
+    return (DataMat_,Global_Full_Heat_Area_Counter_)
+
+# Heat Mat Dissipate Method
+def Heat_Map_Dissipate (DataMat_, dispateWeight, Reset):
+    if (Reset):
+        dispateWeight = 0
+    for i in range(0,len(DataMat_)):
+        for j in range(0,len(DataMat_[0])):
+            DataMat_[j][i] *= dispateWeight
     return DataMat_
+
 # ==================================INITIALIZATION================================
+
 #Predefine Video Source
 cap = cv2.VideoCapture('VIRAT_S_000002.mp4')
 #Frame Counter
@@ -88,9 +107,16 @@ while(cap.isOpened()):
     # cap_resized_gray_bgSub = cv2.morphologyEx(cap_gray_bgSub, cv2.MORPH_OPEN, kernel)
 
     # Heat Map
-    Accumulative_Heat_Mat = Heat_Map_Data_Mat_Update(Accumulative_Heat_Mat, Scene_Width*random.uniform(0,1) ,Scene_Height*random.uniform(0,1), Scene_Width ,Scene_Height ,0.1);
+    ratio = Global_Full_Heat_Area_Counter/(len(Accumulative_Heat_Mat)+len(Accumulative_Heat_Mat[0]))
+    if(ratio > CONST_MAX_HEAT_AREA_TOLERANCE):
+        Accumulative_Heat_Mat = Heat_Map_Dissipate (Accumulative_Heat_Mat, 0.2, False)
+        ratio = 0
+        Global_Full_Heat_Area_Counter = 0
+    print(ratio)
+    tempDataHandler = Heat_Map_Data_Mat_Update(Accumulative_Heat_Mat, Scene_Width*random.uniform(0,1) ,Scene_Height*random.uniform(0,1), Scene_Width ,Scene_Height ,0.1, Global_Full_Heat_Area_Counter)
+    Accumulative_Heat_Mat = tempDataHandler[0]
+    Global_Full_Heat_Area_Counter = tempDataHandler[1]
     HeatMap_img_resized = Heat_Map_Generate(Accumulative_Heat_Mat, Scene_Width, Scene_Height)
-
     # Backgroud Subtractor
     # ret,thresh = cv2.threshold(cap_gray_bgSub_resized,127,255,0)
     # image, contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
