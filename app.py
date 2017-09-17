@@ -221,7 +221,7 @@ while(1):
         current_blobs.append({'cX':centroidX, 'cY':centroidY, 'area':area})
         addToPath(current_blobs)
         if toggle_contours == 1: #only triggers contour drawing if the GUI toggle is on
-        drawObjectPaths(videoFrame)
+            drawObjectPaths(videoFrame)
 
     # Heat Map
     ratio = Global_Full_Heat_Area_Counter/(len(Accumulative_Heat_Mat)+len(Accumulative_Heat_Mat[0]))
