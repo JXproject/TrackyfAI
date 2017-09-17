@@ -168,12 +168,13 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 Scene_Height = -1.0
 Scene_Width = -1.0
 
-Accumulative_Heat_Mat = np.zeros((5,5))
+Accumulative_Heat_Mat = np.zeros((CONST_HEAT_MAP_RESOLUTION,CONST_HEAT_MAP_RESOLUTION))
 
 
 #========START OF APPLICATION=========#
 
 while(1):
+    Frame_Counter += 1
     ret, videoFrame = cap.read()
 
     videoFrame = cv2.resize(videoFrame, (960, 540))
@@ -189,18 +190,6 @@ while(1):
 
     ret, thresh = cv2.threshold(fgMask, 127, 255, cv2.THRESH_BINARY)
 
-    # Heat Map
-
-    ratio = Global_Full_Heat_Area_Counter/(len(Accumulative_Heat_Mat)+len(Accumulative_Heat_Mat[0]))
-    if(ratio > CONST_MAX_HEAT_AREA_TOLERANCE):
-        Accumulative_Heat_Mat = Heat_Map_Dissipate (Accumulative_Heat_Mat, 0.95, False)
-        ratio = 0
-        Global_Full_Heat_Area_Counter = 0
-    tempDataHandler = Heat_Map_Data_Mat_Update(Accumulative_Heat_Mat, 960*random.uniform(0,1) , 540*random.uniform(0,1), 960 , 540 ,0.1, Global_Full_Heat_Area_Counter)
-    Accumulative_Heat_Mat = tempDataHandler[0]
-    Global_Full_Heat_Area_Counter = tempDataHandler[1]
-    HeatMap_img_resized = Heat_Map_Generate(Accumulative_Heat_Mat, 960, 540)
-
     #Morph Ops
     kernelE = np.ones((3,3), np.uint8)
     kernelD = np.ones((8, 8), np.uint8)
@@ -214,27 +203,40 @@ while(1):
 
     #Bounding Box
     img2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    current_blobs = []
+    #videoFrame = cv2.resize(videoFrame, (600,300))
+    for cnt in contours:
+        M = cv2.moments(cnt)
+        centroidX = int (M['m10']/M['m00'])
+        centroidY = int (M['m01']/M['m00'])
+        area = cv2.contourArea(cnt)
 
-    if toggle_contours == 1: #only triggers contour drawing if the GUI toggle is on
-        current_blobs = []
-        #videoFrame = cv2.resize(videoFrame, (600,300))
+        rect = cv2.minAreaRect(cnt)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        #toggle contours on and off
+        videoFrame = cv2.drawContours(videoFrame, [box], 0, (0,255,0), 3)
+        cv2.circle(videoFrame, (centroidX, centroidY), 2, (0,255,0), -1)
 
-        for cnt in contours:
-            M = cv2.moments(cnt)
-            centroidX = int (M['m10']/M['m00'])
-            centroidY = int (M['m01']/M['m00'])
-            area = cv2.contourArea(cnt)
+        current_blobs.append({'cX':centroidX, 'cY':centroidY, 'area':area})
+        addToPath(current_blobs)
+        if toggle_contours == 1: #only triggers contour drawing if the GUI toggle is on
+        drawObjectPaths(videoFrame)
 
-            rect = cv2.minAreaRect(cnt)
-            box = cv2.boxPoints(rect)
-            box = np.int0(box)
-            #toggle contours on and off
-            videoFrame = cv2.drawContours(videoFrame, [box], 0, (0,255,0), 3)
-            cv2.circle(videoFrame, (centroidX, centroidY), 2, (0,255,0), -1)
-
-            current_blobs.append({'cX':centroidX, 'cY':centroidY, 'area':area})
-            addToPath(current_blobs)
-            drawObjectPaths(videoFrame)
+    # Heat Map
+    ratio = Global_Full_Heat_Area_Counter/(len(Accumulative_Heat_Mat)+len(Accumulative_Heat_Mat[0]))
+    if(ratio > CONST_MAX_HEAT_AREA_TOLERANCE):
+        Accumulative_Heat_Mat = Heat_Map_Dissipate (Accumulative_Heat_Mat, 0.95, False)
+        ratio = 0
+        Global_Full_Heat_Area_Counter = 0
+    #10 frames
+    if(Frame_Counter%10 == 0):
+        # print(len(current_blobs))
+        for index in range(0,len(current_blobs)):
+            tempDataHandler = Heat_Map_Data_Mat_Update(Accumulative_Heat_Mat, current_blobs[index]['cX'], current_blobs[index]['cY'], 960 , 540 ,0.01, Global_Full_Heat_Area_Counter)
+            Accumulative_Heat_Mat = tempDataHandler[0]
+            Global_Full_Heat_Area_Counter = tempDataHandler[1]
+    HeatMap_img_resized = Heat_Map_Generate(Accumulative_Heat_Mat, 960, 540)
 
 
 
