@@ -43,7 +43,7 @@ def Heat_Map_Generate(DataMat_, width_, height_):
    while xPos < Amount_x : #Loop through rows
        while yPos < Amount_y : #Loop through collumns
            HeatMap_Clr = HeatMapClr(DataMat_[yPos][xPos])
-           ##print(DataMat_)
+           #print(DataMat_)
            HeatMap_img.itemset((yPos, xPos, 0), HeatMap_Clr[0]*255) #Set B to 255
            HeatMap_img.itemset((yPos, xPos, 1), HeatMap_Clr[1]*255) #Set G to 255
            HeatMap_img.itemset((yPos, xPos, 2), HeatMap_Clr[2]*255) #Set R to 255
@@ -132,7 +132,7 @@ def drawObjectPaths(videoFrame):
     for blob in ObjsOfInterests:
         blobCoordHist = blob['coords'];
         if len(blobCoordHist) > 2:
-            cv2.arrowedLine(videoFrame, blobCoordHist[-2], blobCoordHist[-1], (0,0,255), 5,8,0,0.1);
+            cv2.arrowedLine(videoFrame, blobCoordHist[-2], blobCoordHist[-1], (0,0,255), 3,8,0,0.1);
 
 
     #======================================================== END OF FUNCTIONS ===============================#
@@ -150,7 +150,7 @@ cv2.namedWindow('image')
 
 # create trackbars for color change
 cv2.createTrackbar('Moving Objects','image',0,1,nothing)
-cv2.createTrackbar('Object Trajectory','image',0,1,nothing)
+cv2.createTrackbar('Object Trajectory','image',0,100,nothing)
 cv2.createTrackbar('Heat Map','image',0,100,nothing)
 
 # create switch for ON/OFF functionality
@@ -168,26 +168,38 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 Scene_Height = -1.0
 Scene_Width = -1.0
 
-Accumulative_Heat_Mat = np.zeros((CONST_HEAT_MAP_RESOLUTION,CONST_HEAT_MAP_RESOLUTION))
+Accumulative_Heat_Mat = np.zeros((5,5))
 
 
 #========START OF APPLICATION=========#
 
 while(1):
-    Frame_Counter += 1
     ret, videoFrame = cap.read()
+
     videoFrame = cv2.resize(videoFrame, (960, 540))
 
     # get current positions of four trackbars
-    r = cv2.getTrackbarPos('Moving Objects','image')
-    g = cv2.getTrackbarPos('Object Trajectory','image')
-    b = cv2.getTrackbarPos('Heat Map','image')
-    s = cv2.getTrackbarPos(switch,'image')
+    toggle_contours = cv2.getTrackbarPos('Moving Objects','image')
+    toggle_pt_cloud = cv2.getTrackbarPos('Object Trajectory','image')
+    heat_map_intensity = cv2.getTrackbarPos('Heat Map','image')
+    toggle_image_recognition = cv2.getTrackbarPos(switch,'image')
 
     grayFrame = cv2.cvtColor(videoFrame, cv2.COLOR_BGR2GRAY)
     fgMask = bgSub.apply(grayFrame)
 
     ret, thresh = cv2.threshold(fgMask, 127, 255, cv2.THRESH_BINARY)
+
+    # Heat Map
+
+    ratio = Global_Full_Heat_Area_Counter/(len(Accumulative_Heat_Mat)+len(Accumulative_Heat_Mat[0]))
+    if(ratio > CONST_MAX_HEAT_AREA_TOLERANCE):
+        Accumulative_Heat_Mat = Heat_Map_Dissipate (Accumulative_Heat_Mat, 0.95, False)
+        ratio = 0
+        Global_Full_Heat_Area_Counter = 0
+    tempDataHandler = Heat_Map_Data_Mat_Update(Accumulative_Heat_Mat, 960*random.uniform(0,1) , 540*random.uniform(0,1), 960 , 540 ,0.1, Global_Full_Heat_Area_Counter)
+    Accumulative_Heat_Mat = tempDataHandler[0]
+    Global_Full_Heat_Area_Counter = tempDataHandler[1]
+    HeatMap_img_resized = Heat_Map_Generate(Accumulative_Heat_Mat, 960, 540)
 
     #Morph Ops
     kernelE = np.ones((3,3), np.uint8)
@@ -202,41 +214,29 @@ while(1):
 
     #Bounding Box
     img2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    current_blobs = []
-    #videoFrame = cv2.resize(videoFrame, (600,300))
-    for cnt in contours:
-        M = cv2.moments(cnt)
-        centroidX = int (M['m10']/M['m00'])
-        centroidY = int (M['m01']/M['m00'])
-        area = cv2.contourArea(cnt)
 
-        rect = cv2.minAreaRect(cnt)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        #toggle contours on and off
-        videoFrame = cv2.drawContours(videoFrame, [box], 0, (0,255,0), 3)
-        cv2.circle(videoFrame, (centroidX, centroidY), 2, (0,255,0), -1)
+    if toggle_contours == 1: #only triggers contour drawing if the GUI toggle is on
+        current_blobs = []
+        #videoFrame = cv2.resize(videoFrame, (600,300))
 
-        current_blobs.append({'cX':centroidX, 'cY':centroidY, 'area':area})
-        addToPath(current_blobs)
+        for cnt in contours:
+            M = cv2.moments(cnt)
+            centroidX = int (M['m10']/M['m00'])
+            centroidY = int (M['m01']/M['m00'])
+            area = cv2.contourArea(cnt)
 
-        if r == 1: #only triggers contour drawing if the GUI toggle is on
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+            #toggle contours on and off
+            videoFrame = cv2.drawContours(videoFrame, [box], 0, (0,255,0), 3)
+            cv2.circle(videoFrame, (centroidX, centroidY), 2, (0,255,0), -1)
+
+            current_blobs.append({'cX':centroidX, 'cY':centroidY, 'area':area})
+            addToPath(current_blobs)
             drawObjectPaths(videoFrame)
 
-    # Heat Map
-    ratio = Global_Full_Heat_Area_Counter/(len(Accumulative_Heat_Mat)+len(Accumulative_Heat_Mat[0]))
-    if(ratio > CONST_MAX_HEAT_AREA_TOLERANCE):
-        Accumulative_Heat_Mat = Heat_Map_Dissipate (Accumulative_Heat_Mat, 0.95, False)
-        ratio = 0
-        Global_Full_Heat_Area_Counter = 0
-    #10 frames
-    if(Frame_Counter%10 == 0):
-        # print(len(current_blobs))
-        for index in range(0,len(current_blobs)):
-            tempDataHandler = Heat_Map_Data_Mat_Update(Accumulative_Heat_Mat, current_blobs[index]['cX'], current_blobs[index]['cY'], 960 , 540 ,0.01, Global_Full_Heat_Area_Counter)
-            Accumulative_Heat_Mat = tempDataHandler[0]
-            Global_Full_Heat_Area_Counter = tempDataHandler[1]
-    HeatMap_img_resized = Heat_Map_Generate(Accumulative_Heat_Mat, 960, 540)
+
 
 
     #Draw lines
@@ -248,15 +248,59 @@ while(1):
     #cv2.imshow('frame', videoFrame)
 
 
-    if s == 0:
-        videoFrame = cv2.rectangle(videoFrame, (0, 0), (960, 540), (r,g,b), 5)
-    else:
-        videoFrame = cv2.rectangle(videoFrame, (0, 0), (960, 540), (r,g,b), -1)
+    # if toggle_image_recognition == 0:
+    #     videoFrame = cv2.rectangle(videoFrame, (0, 0), (960, 540), (0,), 5)
+    # else:
+    #     videoFrame = cv2.rectangle(videoFrame, (0, 0), (960, 540), (r,g,b), -1)
 
-    if r == 0:
-        videoFrame = cv2.addWeighted(videoFrame, 1, HeatMap_img_resized, b/100.0, 0) #change to global variable
+    if toggle_image_recognition==1:
+
+        ###################################
+        CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
+            "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+            "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+            "sofa", "train", "tvmonitor"]
+        COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
+
+        (h, w) = videoFrame.shape[:2]
+        normalizedImage = cv2.dnn.blobFromImage(videoFrame, 0.007843, (300, 300), 127.5)
+        #ormalizedImage = cv2.dnn.blobFromImage(frame, 1, (224,224), (104,117,123))
+
+        net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+
+        net.setInput(normalizedImage)
+
+        detections = net.forward()
+
+        for i in np.arange(0, detections.shape[2]):
+            # extract the confidence (i.e., probability) associated with the
+            # prediction
+            confidence = detections[0, 0, i, 2]
+
+            # filter out weak detections by ensuring the `confidence` is
+            # greater than the minimum confidence
+            if confidence > 0.1 :
+                # extract the index of the class label from the `detections`,
+                # then compute the (x, y)-coordinates of the bounding box for
+                # the object
+                idx = int(detections[0, 0, i, 1])
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                (startX, startY, endX, endY) = box.astype("int")
+
+                # display the prediction
+                label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
+                print("[INFO] {}".format(label))
+                cv2.rectangle(videoFrame, (startX, startY), (endX, endY),
+                    COLORS[idx], 2)
+                y = startY - 15 if startY - 15 > 15 else startY + 15
+                cv2.putText(videoFrame, label, (startX, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
+        ###################################
+
+    if toggle_contours == 0:
+        videoFrame = cv2.addWeighted(videoFrame, 1, HeatMap_img_resized, heat_map_intensity/100.0, 0) #change to global variable
     else:
-        videoFrame = cv2.addWeighted(videoFrame, 1, HeatMap_img_resized, b/100.0, 0) #change to global variable
+        videoFrame = cv2.addWeighted(videoFrame, 1, HeatMap_img_resized, heat_map_intensity/100.0, 0) #change to global variable
 
 
     #print(r/100)
